@@ -1,0 +1,10 @@
+﻿{
+  "Id": "CEOofDeath",
+  "DisplayName": "CEO of Death",
+  "Author": "Belithioben",
+  "Version": "1.0.0",
+  "ManagerVersion": "0.21.3",
+  "Requirements": [],
+  "AssemblyName": "CEO_of_Death.dll",
+  "EntryMethod": "CEOofDeath.Main.Load"
+}
