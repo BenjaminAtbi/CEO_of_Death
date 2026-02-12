@@ -22,7 +22,7 @@ namespace CEOofDeath
 
         static void Postfix()
         {
-            if (loaded) return;
+            if (loaded || !Main.Enabled) return;
             loaded = true;
 
             Assembly.GetExecutingAssembly().GetTypes().SelectMany(t => t.GetMethods()).

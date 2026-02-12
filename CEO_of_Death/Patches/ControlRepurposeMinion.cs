@@ -38,16 +38,16 @@ namespace CEOofDeath.Patches
         public static void BP_RepurposeAllowDirectControl()
         {
             RepurposeMainBuff.Components.OfType<ChangeFaction>().First().m_AllowDirectControl = true;
-            Main.DebugLog($"executing allow direct control:{RepurposeMainBuff.Components.OfType<ChangeFaction>().First().m_AllowDirectControl}");
         }
 
+        /*
+         * Does not affect minions that are already Repurposed
+         */
         [BlueprintPatch]
         public static void BP_RepurposeNotDispellable()
         {
             RepurposeTimerBuff.Components.OfType<AddFactContextActions>().First().Deactivated.Actions
                 .OfType<ContextActionApplyBuff>().First().IsNotDispelable = true;
-            Main.DebugLog($"executing undispellable:{RepurposeTimerBuff.Components.OfType<AddFactContextActions>().First().Deactivated.Actions
-                .OfType<ContextActionApplyBuff>().First().IsNotDispelable}");
         }
 
         [HarmonyPatch(typeof(ActionBarVM), nameof(ActionBarVM.SetMechanicSlots))]
@@ -55,7 +55,7 @@ namespace CEOofDeath.Patches
         {
             private static bool Prefix(ActionBarVM __instance, UnitEntityData unit)
             {
-                if (!LoadingProcess.Instance.IsLoadingInProcess && unit != null && unit.Buffs.HasFact(RepurposeMainBuff))
+                if (Main.Enabled && !LoadingProcess.Instance.IsLoadingInProcess && unit != null && unit.Buffs.HasFact(RepurposeMainBuff))
                 {
                     if (unit.UISettings.GetSlot(0, unit) is MechanicActionBarSlotEmpty)
                     {
@@ -77,26 +77,28 @@ namespace CEOofDeath.Patches
             }
         }
 
-
-
         [HarmonyPatch(typeof(Player), nameof(Player.MoveCharacters))]
         private static class Player_MoveCharacters_Patch
         {
             private static void Postfix()
             {
-                foreach (var unit in Game.Instance.Player.Group)
+                if (Main.Enabled)
                 {
-                    if (unit.HasFact(RepurposeMainBuff))
+                    foreach (var unit in Game.Instance.Player.Group)
                     {
-                        var view = unit.View;
-                        if (view != null)
+                        if (unit.HasFact(RepurposeMainBuff))
                         {
-                            view.StopMoving();
+                            var view = unit.View;
+                            if (view != null)
+                            {
+                                view.StopMoving();
+                            }
+                            unit.Position = Game.Instance.Player.MainCharacter.Value.Position;
+                            unit.DesiredOrientation = Game.Instance.Player.MainCharacter.Value.Orientation;
                         }
-                        unit.Position = Game.Instance.Player.MainCharacter.Value.Position;
-                        unit.DesiredOrientation = Game.Instance.Player.MainCharacter.Value.Orientation;
                     }
                 }
+
             }
         }
 
@@ -106,7 +108,8 @@ namespace CEOofDeath.Patches
 
             public static void Postfix(UnitEntityData __instance, ref bool __result)
             {
-                if (!__result
+                if (Main.Enabled 
+                    && !__result
                     && __instance.IsPlayerFaction
                     && __instance.Buffs.HasFact(RepurposeMainBuff)
                     && !__instance.Descriptor.State.IsFinallyDead
