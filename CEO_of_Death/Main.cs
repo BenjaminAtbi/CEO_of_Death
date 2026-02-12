@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using CEOofDeath.Patches;
+using HarmonyLib;
 using System;
 using System.Reflection;
 using UnityModManagerNet;
@@ -8,7 +9,7 @@ namespace CEOofDeath
     internal static class Main
     {
         public static bool Enabled;
-        public static UnityModManager.ModEntry.ModLogger logger;
+        public static UnityModManager.ModEntry.ModLogger? logger;
         public static void DebugLog(string msg)
         {
             if (logger != null) logger.Log(msg);
@@ -25,13 +26,12 @@ namespace CEOofDeath
                 logger = modEntry.Logger;
                 modEntry.OnToggle = OnToggle;
                 var harmony = new Harmony(modEntry.Info.Id);
-
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
             }
             catch (Exception ex)
             {
-                DebugLog("loading error");
                 DebugError(ex);
+                return false;
             }
 
             return true;

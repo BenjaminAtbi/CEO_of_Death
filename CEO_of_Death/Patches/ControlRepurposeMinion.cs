@@ -3,6 +3,7 @@ using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.Blueprints.JsonSystem;
+using Kingmaker.Controllers.Units;
 using Kingmaker.Designers.Mechanics.Buffs;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.EntitySystem.Persistence;
@@ -14,6 +15,8 @@ using Kingmaker.UnitLogic.Abilities.Blueprints;
 using Kingmaker.UnitLogic.Buffs.Blueprints;
 using Kingmaker.UnitLogic.Buffs.Components;
 using Kingmaker.UnitLogic.FactLogic;
+using Kingmaker.UnitLogic.Mechanics.Components;
+using Kingmaker.UnitLogic.Mechanics.Actions;
 using Kingmaker.Utility;
 using Kingmaker.View;
 using System;
@@ -26,58 +29,33 @@ namespace CEOofDeath.Patches
     /*
      * Code adapted from ToyBox controllable summons code https://github.com/xADDBx/ToyBox-Wrath 
      */
-    internal class ControlRepurposeMinion
+    public static class ControlRepurposeMinion
     {
-        private static BlueprintBuff RepurposeBlueprint = ResourcesLibrary.TryGetBlueprint<BlueprintBuff>("5e18ce2e21330e34690c372fbd9d6d60");
+        private static BlueprintBuff RepurposeMainBuff = ResourcesLibrary.TryGetBlueprint<BlueprintBuff>("5e18ce2e21330e34690c372fbd9d6d60");
+        private static BlueprintBuff RepurposeTimerBuff = ResourcesLibrary.TryGetBlueprint<BlueprintBuff>("d5dde709de33cf647ae72699f4b56e57");
 
-        [HarmonyPatch(typeof(BlueprintsCache), nameof(BlueprintsCache.Init))]
-        public class BlueprintsCache_Patches
+        [BlueprintPatch]
+        public static void BP_RepurposeAllowDirectControl()
         {
-            static bool loaded;
-            static void Postfix()
-            {
-                if (loaded) return;
-                loaded = true;
-
-                try
-                {
-                    RepurposeBlueprint.Components.OfType<ChangeFaction>().First().m_AllowDirectControl = true;
-
-                    //RepurposeBlueprint.Components = RepurposeBlueprint.Components.Where(x => x is not MakeUnitFollowUnit).ToArray();
-                }
-                catch (Exception e)
-                {
-                    Main.DebugError(e);
-                }
-            }
+            RepurposeMainBuff.Components.OfType<ChangeFaction>().First().m_AllowDirectControl = true;
+            Main.DebugLog($"executing allow direct control:{RepurposeMainBuff.Components.OfType<ChangeFaction>().First().m_AllowDirectControl}");
         }
 
-        //**********************************
-        // Alchemist Holy Bomb Bugfix (Officially Patched)
-        //**********************************
-        //public static void HolyBombFix()
-        //{
-        //    try
-        //    {
-        //        var HolyBomb = ResourcesLibrary.TryGetBlueprint<BlueprintAbility>("b94ee802dc1574b4fb71215a4a6f11dc");
-        //        var mainTargetConditional = HolyBomb.Components.OfType<AbilityEffectRunAction>().First().Actions.Actions.OfType<Conditional>().First();
-        //        var evilConditional = mainTargetConditional.IfTrue.Actions.OfType<Conditional>().First().IfFalse.Actions.OfType<Conditional>().First();
-        //        var reanimatorConditional = evilConditional.IfTrue.Actions.OfType<Conditional>().First();
-        //        reanimatorConditional.IfTrue.Actions.OfType<ContextActionDealDamage>().First().Half = false;
-        //        reanimatorConditional.IfFalse.Actions.OfType<ContextActionDealDamage>().First().Half = false;
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        Main.DebugError(e);
-        //    }
-        //}
+        [BlueprintPatch]
+        public static void BP_RepurposeNotDispellable()
+        {
+            RepurposeTimerBuff.Components.OfType<AddFactContextActions>().First().Deactivated.Actions
+                .OfType<ContextActionApplyBuff>().First().IsNotDispelable = true;
+            Main.DebugLog($"executing undispellable:{RepurposeTimerBuff.Components.OfType<AddFactContextActions>().First().Deactivated.Actions
+                .OfType<ContextActionApplyBuff>().First().IsNotDispelable}");
+        }
 
         [HarmonyPatch(typeof(ActionBarVM), nameof(ActionBarVM.SetMechanicSlots))]
         private static class ActionBarVM_SetMechanicSlots_Patch
         {
             private static bool Prefix(ActionBarVM __instance, UnitEntityData unit)
             {
-                if (!LoadingProcess.Instance.IsLoadingInProcess && unit != null && unit.Buffs.HasFact(RepurposeBlueprint))
+                if (!LoadingProcess.Instance.IsLoadingInProcess && unit != null && unit.Buffs.HasFact(RepurposeMainBuff))
                 {
                     if (unit.UISettings.GetSlot(0, unit) is MechanicActionBarSlotEmpty)
                     {
@@ -99,18 +77,6 @@ namespace CEOofDeath.Patches
             }
         }
 
-        [HarmonyPatch(typeof(UIUtility), nameof(UIUtility.GetGroup))]
-        private static class UIUtility_GetGroup_Patch
-        {
-            private static void Postfix(ref List<UnitEntityData> __result)
-            {
-                try
-                {
-                    __result.AddRange(Game.Instance.Player.Group.Select(u => u).Where(u => u.Buffs.HasFact(RepurposeBlueprint)));
-                }
-                catch { }
-            }
-        }
 
 
         [HarmonyPatch(typeof(Player), nameof(Player.MoveCharacters))]
@@ -120,7 +86,7 @@ namespace CEOofDeath.Patches
             {
                 foreach (var unit in Game.Instance.Player.Group)
                 {
-                    if (unit.HasFact(RepurposeBlueprint))
+                    if (unit.HasFact(RepurposeMainBuff))
                     {
                         var view = unit.View;
                         if (view != null)
@@ -142,7 +108,7 @@ namespace CEOofDeath.Patches
             {
                 if (!__result
                     && __instance.IsPlayerFaction
-                    && __instance.Buffs.HasFact(RepurposeBlueprint)
+                    && __instance.Buffs.HasFact(RepurposeMainBuff)
                     && !__instance.Descriptor.State.IsFinallyDead
                     && !__instance.Descriptor.State.IsPanicked
                     && !__instance.IsDetached
@@ -154,5 +120,13 @@ namespace CEOofDeath.Patches
 
             }
         }
+
+        /*
+         * Undead Retainer
+         * * Ability granted along with Repurpose Removal Spell
+         * * Bind up to one repurpose minion as persistent pet
+         * * Option to modify max number of retainers at one time
+         * * Option to lose on death or keep permanently
+         */
     }
 }
