@@ -26,6 +26,7 @@ namespace CEOofDeath
                 logger = modEntry.Logger;
                 modEntry.OnToggle = OnToggle;
                 var harmony = new Harmony(modEntry.Info.Id);
+                WrathModLib.BlueprintLoader.Initialize(modEntry, harmony, Assembly.GetExecutingAssembly());
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
             }
             catch (Exception ex)
